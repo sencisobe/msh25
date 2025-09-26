@@ -21,9 +21,15 @@
 #include <stddef.h>			/* NULL */
 #include <stdio.h>			/* setbuf, printf */
 #include <stdlib.h>
+#include <sys/types.h>
+#include <unistd.h>
 
 extern int obtain_order();		/* See parser.y for description */
+// vamos a poner como se procesara cada mandato?
+int procLS (int hola) {
 
+		return 0;
+	}
 int main(void)
 {
 	char ***argvv = NULL;
@@ -44,12 +50,18 @@ int main(void)
 		if (ret == -1) continue;	/* Syntax error */
 		argvc = ret - 1;		/* Line */
 		if (argvc == 0) continue;	/* Empty line */
+
+
 #if 1
+// que se tiene del obtain order?
+
 /*
  * LAS LINEAS QUE A CONTINUACION SE PRESENTAN SON SOLO
  * PARA DAR UNA IDEA DE COMO UTILIZAR LAS ESTRUCTURAS
  * argvv Y filev. ESTAS LINEAS DEBERAN SER ELIMINADAS.
  */
+// bucle primero se saca un mandato ("ls -l")
+// luego se saca cada "palabra" del mandato ("ls", luego "-l")
 		for (argvc = 0; (argv = argvv[argvc]); argvc++) {
 			for (argc = 0; argv[argc]; argc++)
 				printf("%s ", argv[argc]);
@@ -62,6 +74,22 @@ int main(void)
 /*
  * FIN DE LA PARTE A ELIMINAR
  */
+		//ahora toca ver para cada metodo , empezamos con ls
+
+	for (argvc = 0; (argv = argvv[argvc]); argvc++) {
+			for (argc = 0; argv[argc]; argc++){
+				pid_t pid=fork(); // clonamos proc para q ejecute
+				switch(pid){
+					case -1 :
+						perror("fork"); exit(1); 
+					case 0: /* proceso hijo ejecuta "ls" */
+						close(1);
+						execlp("ls","ls",NULL);
+						perror("execlp"); exit(1);
+				}
+			}
+
+	}
 #endif
 	}
 	exit(0);
