@@ -23,15 +23,34 @@
 #include <stdlib.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include <signal.h>
+#include <strings.h> 
+#include <string.h>
+
 
 extern int obtain_order();		/* See parser.y for description */
 // vamos a poner como se procesara cada mandato?
-int procLS (int hola) {
+char * procesarCD (char** parametros ) {
+	//caso cd
+	char ret[256];
 
-		return 0;
+		if(parametros[1]==NULL){
+			chdir(getenv("HOME"));
+		}
+		else{
+			chdir(parametros[1]);
+		}
+
+	strcpy(ret,getcwd(ret,256));
+	printf("%s\n",ret);
+		return ret ;
 	}
 int main(void)
 {
+	//bloquear señales 
+		signal(SIGINT,SIG_IGN);
+		signal(SIGQUIT,SIG_IGN);
+	
 	char ***argvv = NULL;
 	int argvc;
 	char **argv = NULL;
@@ -39,6 +58,11 @@ int main(void)
 	char *filev[3] = { NULL, NULL, NULL };
 	int bg;
 	int ret;
+
+
+//----------------Codigo Dado -----------------
+
+	pid_t pid;
 
 	setbuf(stdout, NULL);			/* Unbuffered */
 	setbuf(stdin, NULL);
@@ -50,47 +74,40 @@ int main(void)
 		if (ret == -1) continue;	/* Syntax error */
 		argvc = ret - 1;		/* Line */
 		if (argvc == 0) continue;	/* Empty line */
+		int conArgvv=0; //contador de mandato
+		// tengo el 1er mandato , hay que hacer un hijo que lo ejecute
+		pid=fork();
+		int fd[2];
+		switch(pid)
+		{
+			case(-1):
+				perror("error fork 1");
+				exit(1);
+			case(0): //hijo
+			// volver procesar señales
+				signal(SIGINT,SIG_DFL);
+				signal(SIGQUIT,SIG_DFL);
+				// mandato a ejecutar? execvp?
 
+				//procesar CD
+				if (strcmp(argvv[conArgvv][0],"cd")==0){
+				
+					procesarCD(argvv[conArgvv]);
 
-#if 1
-// que se tiene del obtain order?
-
-/*
- * LAS LINEAS QUE A CONTINUACION SE PRESENTAN SON SOLO
- * PARA DAR UNA IDEA DE COMO UTILIZAR LAS ESTRUCTURAS
- * argvv Y filev. ESTAS LINEAS DEBERAN SER ELIMINADAS.
- */
-// bucle primero se saca un mandato ("ls -l")
-// luego se saca cada "palabra" del mandato ("ls", luego "-l")
-		for (argvc = 0; (argv = argvv[argvc]); argvc++) {
-			for (argc = 0; argv[argc]; argc++)
-				printf("%s ", argv[argc]);
-			printf("\n");
-		}
-		if (filev[0]) printf("< %s\n", filev[0]);/* IN */
-		if (filev[1]) printf("> %s\n", filev[1]);/* OUT */
-		if (filev[2]) printf(">& %s\n", filev[2]);/* ERR */
-		if (bg) printf("&\n");
-/*
- * FIN DE LA PARTE A ELIMINAR
- */
-		//ahora toca ver para cada metodo , empezamos con ls
-
-	for (argvc = 0; (argv = argvv[argvc]); argvc++) {
-			for (argc = 0; argv[argc]; argc++){
-				pid_t pid=fork(); // clonamos proc para q ejecute
-				switch(pid){
-					case -1 :
-						perror("fork"); exit(1); 
-					case 0: /* proceso hijo ejecuta "ls" */
-						close(1);
-						execlp("ls","ls",NULL);
-						perror("execlp"); exit(1);
 				}
-			}
 
-	}
-#endif
+				
+			default:
+				wait();
+
+		}
+		
+//-----------------------------------------------
+
+
+
+
+
 	}
 	exit(0);
 	return 0;
