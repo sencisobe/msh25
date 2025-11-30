@@ -26,27 +26,38 @@
 #include <signal.h>
 #include <strings.h> 
 #include <string.h>
+#include <fcntl.h> /*creat*/
+#include <sys/wait.h> /*waitpid*/
+#include <stdlib.h> 
 
 
 extern int obtain_order();		/* See parser.y for description */
 // vamos a poner como se procesara cada mandato?
-char * procesarCD (char** parametros ) {
+void procesarCD (char** parametros ) {
 	//caso cd
 	char ret[256];
-
+	if (parametros[2]!=NULL){
+		perror("Mucho Argumento");
+		exit(1);
+	}
 		if(parametros[1]==NULL){
-			chdir(getenv("HOME"));
+			if(chdir(getenv("HOME"))){
+			perror("no existe dir");
+			exit(1);
+			}
 		}
 		else{
-			chdir(parametros[1]);
+			if(chdir(parametros[1])!=1){
+				perror("cd");
+				exit(1);
+			}
 		}
 
 	strcpy(ret,getcwd(ret,256));
 	printf("%s\n",ret);
-		return ret ;
+		
 }
-int main(void)
-{
+int main(void){
 	//bloquear señales 
 		signal(SIGINT,SIG_IGN);
 		signal(SIGQUIT,SIG_IGN);
@@ -63,6 +74,10 @@ int main(void)
 //----------------Codigo Dado -----------------
 
 	pid_t pid;
+	pid_t bgpid;
+	int status;
+
+
 
 	setbuf(stdout, NULL);			/* Unbuffered */
 	setbuf(stdin, NULL);
@@ -77,7 +92,6 @@ int main(void)
 		if (argvc == 0) continue;	/* Empty line */
 
 		masDeUnArgvv=(argvc>1);
-		
 		int  pipesfd[argvc-1][2];
 		pid_t pIDs[argvc];
 
@@ -101,13 +115,51 @@ int main(void)
 		for(int conArgvv=0;conArgvv<argvc;conArgvv++){
 		//hay que hacer un hijo que ejecute cada mandato
 			pid=fork();
+			if(conArgvv==argvc-1){
+				bgpid=pid;
+			}
+			
 			switch(pid)
 			{
 				case(-1):
 					perror("error fork 1");
 					exit(1);
 				case(0): //hijo
-				//procesar secuencias
+					// redirecciones
+					int fd;
+					if(conArgvv==0){ //primer mandato
+					if(filev[0]!=NULL){
+					fd=open(filev[0],O_RDONLY);
+						if (fd<0){
+							perror("open err");
+							exit(1);
+						}
+					dup2(fd,STDIN_FILENO);
+					close(fd);
+					}
+					}
+					if(conArgvv==argvc-1){ //ultimo mandato
+					if(filev[1]!=NULL){
+					fd=creat(filev[1],0666);
+					if (fd<0){
+							perror("creat err");
+							exit(1);
+						}
+					dup2(fd,STDOUT_FILENO);
+					close(fd);
+					}
+					else if(filev[2]!=NULL){
+					fd=creat(filev[2],0666);
+					if (fd<0){
+							perror("creat err");
+							exit(1);
+						}
+					dup2(fd,STDERR_FILENO);
+					close(fd);
+					}
+					}
+					
+					//procesar secuencias
 					if(masDeUnArgvv){
 					if (conArgvv==0){ // primer (entrada)
 						dup2(pipesfd[conArgvv][1],STDOUT_FILENO);
@@ -144,7 +196,7 @@ int main(void)
 					//caso mandato generico
 					execvp(argvv[conArgvv][0],argvv[conArgvv]);
 					perror("error execvp");
-					exit(0);
+					exit(1);
 				}	
 
 					
@@ -157,8 +209,15 @@ int main(void)
 			close(pipesfd[i][0]);
 			close(pipesfd[i][1]);
 		}
-		for (int i = 0; i < argvc; i++){
-    	wait(NULL);
+		if(!bg){// esperar al ultimo hijo SOLO
+			waitpid(bgpid,&status,0);
+				if (WIFEXITED(status)) {   
+            	printf("Hijo terminó con código %d\n", WEXITSTATUS(status));
+				}
+			}
+		
+		else{ // no esperar CASO bg activo
+			printf("[%d]\n",bgpid);
 		}
 
 		
