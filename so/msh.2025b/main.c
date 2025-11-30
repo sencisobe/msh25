@@ -38,27 +38,27 @@ void procesarCD (char** parametros ) {
 	char ret[256];
 	struct stat st;
 	if (parametros[2]!=NULL){
-		perror("Mucho Argumento");
-		exit(1);
+		fprintf(stderr,"demasiado arg");
+		return;
 	}
 	
 		if(parametros[1]==NULL){
-			if(chdir(getenv("HOME"))){
-			perror("no existe dir");
-			exit(1);
+			char * home =getenv("HOME");
+			if (!home){
+				fprintf(stderr,"cd : HOME no definido\n");
+				return -1;
+			}
+
+			if(chdir(home)==-1){
+				perror("cd");
+				exit(1);
 			}
 		}
 		else{
-			if (stat(parametros[1], &st) == 0 && S_ISDIR(st.st_mode)) {
-    		
-			chdir(parametros[1]);
-			} 
-			else {
-        		perror("No existe o no es un directorio.\n");
-				exit(1);
-   			 }
-	
-			
+			if(chdir(parametros[1])==-1){
+					perror("cd");
+					exit(1);
+				}
 		}
 
 	strcpy(ret,getcwd(ret,256));
@@ -69,8 +69,8 @@ void procesarUmask (char ** parametros){
 	int res;
 	char *err;
 	if (parametros[2]!=NULL){
-		perror("Numero incorrecto de argumentos");
-		exit(1);
+		fprintf(stderr, "Numero incorrecto de argumentos");
+		return;
 	}
 	else if (parametros[1]!=NULL){
 		res=strtol(parametros[1],&err,8);
@@ -142,6 +142,9 @@ int main(void){
 			pIDs[i]=fork();
 		}
 		*/
+		int saved_stdin = dup(STDIN_FILENO);
+		int saved_stderr = dup(STDERR_FILENO);
+		int saved_stdout = dup(STDOUT_FILENO);
 
 		//alterar pipe en caso de que haya "|" 
 		for(int conArgvv=0;conArgvv<argvc;conArgvv++){
@@ -149,18 +152,109 @@ int main(void){
 			
 		
 		
-			if(conArgvv==argvc-1){ // caso cd ultimo 
-					
-				if (strcmp(argvv[conArgvv][0],"cd")==0){
-					
-					procesarCD(argvv[conArgvv]);
-					
-					//caso de si hay "|"
-					break;
-				}
+								
+			if ((argvc==1) && (strcmp(argvv[conArgvv][0],"cd"))==0){
+				//redireccion 
+				int fd;
+					if(conArgvv==0){ //primer mandato
+					if(filev[0]!=NULL){ // <
+					fd=open(filev[0],O_RDONLY);
+						if (fd<0){
+							perror("open err");
+							exit(1);
+						}
+					dup2(fd,STDIN_FILENO);
+					close(fd);
+					}
+					}
+					if(conArgvv==argvc-1){ // > ultimo mandato
+					if(filev[1]!=NULL){
+					fd=creat(filev[1],0666);
+					if (fd<0){
+							perror("creat err");
+							exit(1);
+						}
+					dup2(fd,STDOUT_FILENO);
+					close(fd);
+					}
+					else if(filev[2]!=NULL){ // &> caso
+					fd=creat(filev[2],0666);
+					if (fd<0){
+							perror("creat err");
+							exit(1);
+						}
+					dup2(fd,STDERR_FILENO);
+					close(fd);
+					}
+					}
+				procesarCD(argvv[conArgvv]);
+				//restaurar redirecciones	
+					if(filev[0]!=NULL) {
+						dup2(saved_stdin,STDIN_FILENO);
+						close(saved_stdin);
+					}
+					if(filev[1]!=NULL) {
+						dup2(saved_stdout, STDOUT_FILENO);
+						close(saved_stdout);
+					}
+					if(filev[2]!=NULL) {
+						dup2(saved_stderr,STDERR_FILENO);
+						close(saved_stderr);
+					}	
 
+				break;
 			}
-				
+			if ((argvc==1) && (strcmp(argvv[conArgvv][0],"umask"))==0){
+				//redireccion 
+				int fd;
+					if(conArgvv==0){ //primer mandato
+					if(filev[0]!=NULL){ // <
+					fd=open(filev[0],O_RDONLY);
+						if (fd<0){
+							perror("open err");
+							exit(1);
+						}
+					dup2(fd,STDIN_FILENO);
+					close(fd);
+					}
+					}
+					if(conArgvv==argvc-1){ // > ultimo mandato
+					if(filev[1]!=NULL){
+					fd=creat(filev[1],0666);
+					if (fd<0){
+							perror("creat err");
+							exit(1);
+						}
+					dup2(fd,STDOUT_FILENO);
+					close(fd);
+					}
+					else if(filev[2]!=NULL){ // &> caso
+					fd=creat(filev[2],0666);
+					if (fd<0){
+							perror("creat err");
+							exit(1);
+						}
+					dup2(fd,STDERR_FILENO);
+					close(fd);
+					}
+					}
+				procesarUmask(argvv[conArgvv]);	
+			//restaurar redirecciones	
+					if(filev[0]!=NULL) {
+						dup2(saved_stdin,STDIN_FILENO);
+						close(saved_stdin);
+					}
+					if(filev[1]!=NULL) {
+						dup2(saved_stdout, STDOUT_FILENO);
+						close(saved_stdout);
+					}
+					if(filev[2]!=NULL) {
+						dup2(saved_stderr,STDERR_FILENO);
+						close(saved_stderr);
+					}	
+				break;
+			}
+
 			pid=fork();
 
 			if(conArgvv==argvc-1){
