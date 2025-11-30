@@ -176,7 +176,7 @@ int main(void){
 					// redirecciones
 					int fd;
 					if(conArgvv==0){ //primer mandato
-					if(filev[0]!=NULL){
+					if(filev[0]!=NULL){ // <
 					fd=open(filev[0],O_RDONLY);
 						if (fd<0){
 							perror("open err");
@@ -186,7 +186,7 @@ int main(void){
 					close(fd);
 					}
 					}
-					if(conArgvv==argvc-1){ //ultimo mandato
+					if(conArgvv==argvc-1){ // > ultimo mandato
 					if(filev[1]!=NULL){
 					fd=creat(filev[1],0666);
 					if (fd<0){
@@ -196,7 +196,7 @@ int main(void){
 					dup2(fd,STDOUT_FILENO);
 					close(fd);
 					}
-					else if(filev[2]!=NULL){
+					else if(filev[2]!=NULL){ // &> caso
 					fd=creat(filev[2],0666);
 					if (fd<0){
 							perror("creat err");
