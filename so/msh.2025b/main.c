@@ -57,7 +57,6 @@ void procesarCD (char** parametros ) {
         		perror("No existe o no es un directorio.\n");
 				exit(1);
    			 }
-			chdir(parametros[1]);
 	
 			
 		}
