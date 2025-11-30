@@ -65,6 +65,30 @@ void procesarCD (char** parametros ) {
 	printf("%s\n",ret);
 		
 }
+void procesarUmask (char ** parametros){
+	int res;
+	char *err;
+	if (parametros[2]!=NULL){
+		perror("Numero incorrecto de argumentos");
+		exit(1);
+	}
+	else if (parametros[1]!=NULL){
+		res=strtol(parametros[1],&err,8);
+		if ( *err!= '\0' ) {
+			perror ( "Valor de umask no valido(debe ser en octal)");
+			exit(1);
+		}
+
+		umask(res);
+	}
+	else {
+		res=umask(0);
+		umask(res);
+	}
+	printf("%o\n",res);
+
+}
+
 int main(void){
 	//bloquear señales 
 		signal(SIGINT,SIG_IGN);
@@ -123,6 +147,8 @@ int main(void){
 		for(int conArgvv=0;conArgvv<argvc;conArgvv++){
 		//hay que hacer un hijo que ejecute cada mandato
 			
+		
+		
 			if(conArgvv==argvc-1){ // caso cd ultimo 
 					
 				if (strcmp(argvv[conArgvv][0],"cd")==0){
@@ -134,11 +160,12 @@ int main(void){
 				}
 
 			}
+				
 			pid=fork();
 
 			if(conArgvv==argvc-1){
 				bgpid=pid;
-
+			}
 			
 			switch(pid)
 			{
@@ -209,6 +236,13 @@ int main(void){
 				if (strcmp(argvv[conArgvv][0],"cd")==0){
 					
 					procesarCD(argvv[conArgvv]);
+					
+					//caso de si hay "|"
+					exit(0);
+				}
+				if (strcmp(argvv[conArgvv][0],"umask")==0){
+					
+					procesarUmask(argvv[conArgvv]);
 					
 					//caso de si hay "|"
 					exit(0);
