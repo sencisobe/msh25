@@ -29,17 +29,19 @@
 #include <fcntl.h> /*creat*/
 #include <sys/wait.h> /*waitpid*/
 #include <stdlib.h> 
-
+#include <sys/stat.h>
 
 extern int obtain_order();		/* See parser.y for description */
 // vamos a poner como se procesara cada mandato?
 void procesarCD (char** parametros ) {
 	//caso cd
 	char ret[256];
+	struct stat st;
 	if (parametros[2]!=NULL){
 		perror("Mucho Argumento");
 		exit(1);
 	}
+	
 		if(parametros[1]==NULL){
 			if(chdir(getenv("HOME"))){
 			perror("no existe dir");
@@ -47,10 +49,17 @@ void procesarCD (char** parametros ) {
 			}
 		}
 		else{
-			if(chdir(parametros[1])!=1){
-				perror("cd");
+			if (stat(parametros[1], &st) == 0 && S_ISDIR(st.st_mode)) {
+    		
+			chdir(parametros[1]);
+			} 
+			else {
+        		perror("No existe o no es un directorio.\n");
 				exit(1);
-			}
+   			 }
+			chdir(parametros[1]);
+	
+			
 		}
 
 	strcpy(ret,getcwd(ret,256));
@@ -114,10 +123,23 @@ int main(void){
 		//alterar pipe en caso de que haya "|" 
 		for(int conArgvv=0;conArgvv<argvc;conArgvv++){
 		//hay que hacer un hijo que ejecute cada mandato
+			
+			if(conArgvv==argvc-1){ // caso cd ultimo 
+					
+				if (strcmp(argvv[conArgvv][0],"cd")==0){
+					
+					procesarCD(argvv[conArgvv]);
+					
+					//caso de si hay "|"
+					break;
+				}
+
+			}
 			pid=fork();
+
 			if(conArgvv==argvc-1){
 				bgpid=pid;
-			}
+
 			
 			switch(pid)
 			{
@@ -179,8 +201,10 @@ int main(void){
 					}
 					
 				// volver procesar señales
+				if(!bg){
 				signal(SIGINT,SIG_DFL);
 				signal(SIGQUIT,SIG_DFL);
+				}
 				// mandato a ejecutar? execvp?
 				//procesar CD
 				if (strcmp(argvv[conArgvv][0],"cd")==0){
