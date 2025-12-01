@@ -74,19 +74,19 @@ void gestRedir(char * filev []){
 					
 
 }
-void restRedir(int saved[3], char *filev[3]) {
+void restRedir(int saved[3]) {
 
-    if (filev[0] && saved[0] != -1) {
+    if (saved[0] != -1) {
         dup2(saved[0], STDIN_FILENO);
         close(saved[0]);
     }
 
-    if (filev[1] && saved[1] != -1) {
+    if (saved[1] != -1) {
         dup2(saved[1], STDOUT_FILENO);
         close(saved[1]);
     }
 
-    if (filev[2] && saved[2] != -1) {
+    if (saved[2] != -1) {
         dup2(saved[2], STDERR_FILENO);
         close(saved[2]);
     }
@@ -211,14 +211,14 @@ int main(void){
 				gestRedir(filev);
 				procesarCD(argvv[0]);
 				//restaurar redirecciones	
-				restRedir(saved,filev);
+				restRedir(saved);
 			}
 			else if ((argvc==1) && (strcmp(argvv[0][0],"umask"))==0){
 				//redireccion 
 				gestRedir(filev);
 				procesarUmask(argvv[0]);	
 				//restaurar redirecciones	
-				restRedir(saved,filev);
+				restRedir(saved);
 
 			}
 		//alterar pipe en caso de que haya "|" 
@@ -349,7 +349,7 @@ int main(void){
 		}	
 //-----------------------------------------------
 		
-
+		restRedir(saved);
 	}
 	exit(0);
 	return 0;
