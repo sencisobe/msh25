@@ -32,32 +32,89 @@
 #include <sys/stat.h>
 
 extern int obtain_order();		/* See parser.y for description */
-// vamos a poner como se procesara cada mandato?
+
+int status=0;
+
+void guardar_descriptores(int saved[3]) {
+    saved[0] = dup(STDIN_FILENO);
+    saved[1] = dup(STDOUT_FILENO);
+    saved[2] = dup(STDERR_FILENO);
+}
+
+void gestRedir(char * filev []){
+
+	int fd;
+	if(filev[0]!=NULL){ // <
+	fd=open(filev[0],O_RDONLY);
+		if (fd<0){
+			perror("open err");
+			exit(1);
+		}
+	dup2(fd,STDIN_FILENO);
+	close(fd);
+	}
+	if(filev[1]!=NULL){ // >
+	fd=creat(filev[1],0666);
+	if (fd<0){
+			perror("creat err");
+			exit(1);
+		}
+	dup2(fd,STDOUT_FILENO);
+	close(fd);
+	}
+	else if(filev[2]!=NULL){ // &> caso
+	fd=creat(filev[2],0666);
+	if (fd<0){
+			perror("creat err");
+			exit(1);
+		}
+	dup2(fd,STDERR_FILENO);
+	close(fd);
+	}
+					
+
+}
+void restRedir(int saved[3], char *filev[3]) {
+
+    if (filev[0] && saved[0] != -1) {
+        dup2(saved[0], STDIN_FILENO);
+        close(saved[0]);
+    }
+
+    if (filev[1] && saved[1] != -1) {
+        dup2(saved[1], STDOUT_FILENO);
+        close(saved[1]);
+    }
+
+    if (filev[2] && saved[2] != -1) {
+        dup2(saved[2], STDERR_FILENO);
+        close(saved[2]);
+    }
+}
 void procesarCD (char** parametros ) {
 	//caso cd
 	char ret[256];
-	struct stat st;
 	if (parametros[2]!=NULL){
-		fprintf(stderr,"demasiado arg");
-		return;
+		fprintf(stderr,"demasiado arg\n");
+		status=1;
 	}
 	
 		if(parametros[1]==NULL){
 			char * home =getenv("HOME");
 			if (!home){
 				fprintf(stderr,"cd : HOME no definido\n");
-				return -1;
+				status=1;
 			}
 
 			if(chdir(home)==-1){
 				perror("cd");
-				exit(1);
+				status=1;
 			}
 		}
 		else{
 			if(chdir(parametros[1])==-1){
 					perror("cd");
-					exit(1);
+					status=1;
 				}
 		}
 
@@ -70,29 +127,33 @@ void procesarUmask (char ** parametros){
 	char *err;
 	if (parametros[2]!=NULL){
 		fprintf(stderr, "Numero incorrecto de argumentos");
-		return;
+		status=1;
 	}
 	else if (parametros[1]!=NULL){
 		res=strtol(parametros[1],&err,8);
-		if ( *err!= '\0' ) {
-			perror ( "Valor de umask no valido(debe ser en octal)");
-			exit(1);
-		}
 
+		if (res < 0000 || res > 7777 ||*err!= '\0' ) {
+			perror ( "Valor de umask no valido(debe ser en octal)");
+			status=1;
+			return;
+		}
 		umask(res);
+		printf("%o\n",res);
+
 	}
 	else {
 		res=umask(0);
 		umask(res);
+		printf("%o\n",res);
+
 	}
-	printf("%o\n",res);
 
 }
 
 int main(void){
 	//bloquear señales 
-		signal(SIGINT,SIG_IGN);
-		signal(SIGQUIT,SIG_IGN);
+	signal(SIGINT,SIG_IGN);
+	signal(SIGQUIT,SIG_IGN);
 	
 	char ***argvv = NULL;
 	int argvc;
@@ -107,15 +168,16 @@ int main(void){
 
 	pid_t pid;
 	pid_t bgpid;
-	int status;
-
-
+	int saved[3];
+	printf("%d \n", getpid());
 
 	setbuf(stdout, NULL);			/* Unbuffered */
 	setbuf(stdin, NULL);
 
 	while (1) {
 		int masDeUnArgvv=0;
+		int manInt=0;
+		
 		fprintf(stderr, "%s", "msh> ");	/* Prompt */
 		ret = obtain_order(&argvv, filev, &bg);
 		if (ret == 0) break;		/* EOF */
@@ -142,121 +204,33 @@ int main(void){
 			pIDs[i]=fork();
 		}
 		*/
-		int saved_stdin = dup(STDIN_FILENO);
-		int saved_stderr = dup(STDERR_FILENO);
-		int saved_stdout = dup(STDOUT_FILENO);
+		guardar_descriptores(saved);
+		
+		if ((argvc==1) && (strcmp(argvv[0][0],"cd"))==0){
+				//redireccion 
+				gestRedir(filev);
+				procesarCD(argvv[0]);
+				//restaurar redirecciones	
+				restRedir(saved,filev);
+			}
+			else if ((argvc==1) && (strcmp(argvv[0][0],"umask"))==0){
+				//redireccion 
+				gestRedir(filev);
+				procesarUmask(argvv[0]);	
+				//restaurar redirecciones	
+				restRedir(saved,filev);
 
+			}
 		//alterar pipe en caso de que haya "|" 
+
+		else {
+
 		for(int conArgvv=0;conArgvv<argvc;conArgvv++){
 		//hay que hacer un hijo que ejecute cada mandato
 			
-		
-		
-								
-			if ((argvc==1) && (strcmp(argvv[conArgvv][0],"cd"))==0){
-				//redireccion 
-				int fd;
-					if(conArgvv==0){ //primer mandato
-					if(filev[0]!=NULL){ // <
-					fd=open(filev[0],O_RDONLY);
-						if (fd<0){
-							perror("open err");
-							exit(1);
-						}
-					dup2(fd,STDIN_FILENO);
-					close(fd);
-					}
-					}
-					if(conArgvv==argvc-1){ // > ultimo mandato
-					if(filev[1]!=NULL){
-					fd=creat(filev[1],0666);
-					if (fd<0){
-							perror("creat err");
-							exit(1);
-						}
-					dup2(fd,STDOUT_FILENO);
-					close(fd);
-					}
-					else if(filev[2]!=NULL){ // &> caso
-					fd=creat(filev[2],0666);
-					if (fd<0){
-							perror("creat err");
-							exit(1);
-						}
-					dup2(fd,STDERR_FILENO);
-					close(fd);
-					}
-					}
-				procesarCD(argvv[conArgvv]);
-				//restaurar redirecciones	
-					if(filev[0]!=NULL) {
-						dup2(saved_stdin,STDIN_FILENO);
-						close(saved_stdin);
-					}
-					if(filev[1]!=NULL) {
-						dup2(saved_stdout, STDOUT_FILENO);
-						close(saved_stdout);
-					}
-					if(filev[2]!=NULL) {
-						dup2(saved_stderr,STDERR_FILENO);
-						close(saved_stderr);
-					}	
 
-				break;
-			}
-			if ((argvc==1) && (strcmp(argvv[conArgvv][0],"umask"))==0){
-				//redireccion 
-				int fd;
-					if(conArgvv==0){ //primer mandato
-					if(filev[0]!=NULL){ // <
-					fd=open(filev[0],O_RDONLY);
-						if (fd<0){
-							perror("open err");
-							exit(1);
-						}
-					dup2(fd,STDIN_FILENO);
-					close(fd);
-					}
-					}
-					if(conArgvv==argvc-1){ // > ultimo mandato
-					if(filev[1]!=NULL){
-					fd=creat(filev[1],0666);
-					if (fd<0){
-							perror("creat err");
-							exit(1);
-						}
-					dup2(fd,STDOUT_FILENO);
-					close(fd);
-					}
-					else if(filev[2]!=NULL){ // &> caso
-					fd=creat(filev[2],0666);
-					if (fd<0){
-							perror("creat err");
-							exit(1);
-						}
-					dup2(fd,STDERR_FILENO);
-					close(fd);
-					}
-					}
-				procesarUmask(argvv[conArgvv]);	
-			//restaurar redirecciones	
-					if(filev[0]!=NULL) {
-						dup2(saved_stdin,STDIN_FILENO);
-						close(saved_stdin);
-					}
-					if(filev[1]!=NULL) {
-						dup2(saved_stdout, STDOUT_FILENO);
-						close(saved_stdout);
-					}
-					if(filev[2]!=NULL) {
-						dup2(saved_stderr,STDERR_FILENO);
-						close(saved_stderr);
-					}	
-				break;
-			}
 
 			pid=fork();
-
 			if(conArgvv==argvc-1){
 				bgpid=pid;
 			}
@@ -332,7 +306,7 @@ int main(void){
 					procesarCD(argvv[conArgvv]);
 					
 					//caso de si hay "|"
-					exit(0);
+					exit(status);
 				}
 				if (strcmp(argvv[conArgvv][0],"umask")==0){
 					
@@ -347,7 +321,7 @@ int main(void){
 					//caso mandato generico
 					execvp(argvv[conArgvv][0],argvv[conArgvv]);
 					perror("error execvp");
-					exit(1);
+					exit(status);
 				}	
 
 					
@@ -355,23 +329,24 @@ int main(void){
 				break;
 			}
 		}
+	
 		
 		for (int i = 0; masDeUnArgvv && (i < argvc - 1) ; i++) {
 			close(pipesfd[i][0]);
 			close(pipesfd[i][1]);
 		}
-		if(!bg){// esperar al ultimo hijo SOLO
+		if(!bg ){// esperar al ultimo hijo SOLO
 			waitpid(bgpid,&status,0);
 				if (WIFEXITED(status)) {   
             	printf("Hijo terminó con código %d\n", WEXITSTATUS(status));
 				}
 			}
 		
-		else{ // no esperar CASO bg activo
+		else { // no esperar CASO bg activo
 			printf("[%d]\n",bgpid);
 		}
 
-		
+		}	
 //-----------------------------------------------
 		
 
