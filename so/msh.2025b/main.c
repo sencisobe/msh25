@@ -30,6 +30,7 @@
 #include <sys/wait.h> /*waitpid*/
 #include <stdlib.h> 
 #include <sys/stat.h>
+#include <sys/resource.h>
 
 extern int obtain_order();		/* See parser.y for description */
 
@@ -149,6 +150,97 @@ void procesarUmask (char ** parametros){
 	}
 
 }
+void procesaLimit (char ** parametros){
+	struct rlimit lim;
+	
+	if (parametros[1]==NULL){
+		// presentar por salida estandar todos los limites
+		getrlimit(RLIMIT_CPU,&lim);
+		fprintf("%s\t%d\n","cpu",lim.rlim_cur);
+		getrlimit(RLIMIT_FSIZE,&lim);
+		fprintf("%s\t%d\n","fsize",lim.rlim_cur);
+		getrlimit(RLIMIT_DATA,&lim);
+		fprintf("%s\t%d\n","data",lim.rlim_cur);
+		getrlimit(RLIMIT_STACK,&lim);
+		fprintf("%s\t%d\n","stack",lim.rlim_cur);
+		getrlimit(RLIMIT_CORE,&lim);
+		fprintf("%s\t%d\n","core",lim.rlim_cur);
+		getrlimit(RLIMIT_NOFILE,&lim);
+		fprintf("%s\t%d\n","nofile",lim.rlim_cur);
+	
+	}
+	else if (parametros[2]==NULL){ // caso maximo no aparece
+		// presenar el limite del recurso actual
+		char * cad= parametros[1];
+		if (strcmp("cpu",cad)==0){
+			getrlimit(RLIMIT_CPU,&lim);
+			fprintf("%s\t%d\n","cpu",lim.rlim_cur);
+		}else if (strcmp("fsize",cad)==0){
+			getrlimit(RLIMIT_FSIZE,&lim);
+			fprintf("%s\t%d\n","fsize",lim.rlim_cur);
+		}else if (strcmp("data",cad)==0){
+			getrlimit(RLIMIT_DATA,&lim);
+			fprintf("%s\t%d\n","data",lim.rlim_cur);
+		}else if (strcmp("stack",cad)==0){
+			getrlimit(RLIMIT_STACK,&lim);
+			fprintf("%s\t%d\n","stack",lim.rlim_cur);
+		}else if (strcmp("core",cad)==0){
+			getrlimit(RLIMIT_CORE,&lim);
+			fprintf("%s\t%d\n","core",lim.rlim_cur);
+		}else if (strcmp("nofile",cad)==0){
+			getrlimit(RLIMIT_NOFILE,&lim);
+			fprintf("%s\t%d\n","nofile",lim.rlim_cur);
+		}
+		else{
+			perror ( "limit err");
+			status=1;
+			return;
+		}
+	}
+	else { // caso normal de establecimiento de limites maximos 
+
+		// un maximo de -1 es valor infinito? MAX_INT?
+		char * cad = parametros[1];
+		char * fin;
+		int valor = strtol(parametros[2],&fin,10);//convertir valor
+		// setear valor de rlim
+		if (strcmp("cpu",cad)==0){
+			getrlimit(RLIMIT_CPU,&lim);
+		}else if (strcmp("fsize",cad)==0){
+			getrlimit(RLIMIT_FSIZE,&lim);
+		}else if (strcmp("data",cad)==0){
+			getrlimit(RLIMIT_DATA,&lim);
+		}else if (strcmp("stack",cad)==0){
+			getrlimit(RLIMIT_STACK,&lim);
+		}else if (strcmp("core",cad)==0){
+			getrlimit(RLIMIT_CORE,&lim);
+		}else if (strcmp("nofile",cad)==0){
+			getrlimit(RLIMIT_NOFILE,&lim);
+		}
+		else{
+			perror ( "limit err");
+			status=1;
+			return;
+		}
+		if (valor == -1)
+        	lim.rlim_cur = RLIM_INFINITY;
+   		else
+        	lim.rlim_cur = valor;
+
+		if (strcmp("cpu",cad)==0)
+			setrlimit(RLIMIT_CPU,&lim);
+		if (strcmp("fsize",cad)==0)
+			setrlimit(RLIMIT_FSIZE,&lim);
+		if (strcmp("data",cad)==0)
+			setrlimit(RLIMIT_DATA,&lim);
+		if (strcmp("stack",cad)==0)
+			setrlimit(RLIMIT_STACK,&lim);
+		if (strcmp("core",cad)==0)
+			setrlimit(RLIMIT_CORE,&lim);
+		if (strcmp("nofile",cad)==0)
+			setrlimit(RLIMIT_NOFILE,&lim);
+	}	
+}
 
 int main(void){
 	//bloquear señales 
@@ -213,14 +305,22 @@ int main(void){
 				//restaurar redirecciones	
 				restRedir(saved);
 			}
-			else if ((argvc==1) && (strcmp(argvv[0][0],"umask"))==0){
-				//redireccion 
-				gestRedir(filev);
-				procesarUmask(argvv[0]);	
-				//restaurar redirecciones	
-				restRedir(saved);
+		else if ((argvc==1) && (strcmp(argvv[0][0],"umask"))==0){
+			//redireccion 
+			gestRedir(filev);
+			procesarUmask(argvv[0]);	
+			//restaurar redirecciones	
+			restRedir(saved);
 
-			}
+		}
+		else if ((argvc==1) && (strcmp(argvv[0][0],"limit"))==0){
+			//redireccion 
+			gestRedir(filev);
+			procesarLimit(argvv[0]);	
+			//restaurar redirecciones	
+			restRedir(saved);
+
+		}
 		//alterar pipe en caso de que haya "|" 
 
 		else {
@@ -311,6 +411,13 @@ int main(void){
 				if (strcmp(argvv[conArgvv][0],"umask")==0){
 					
 					procesarUmask(argvv[conArgvv]);
+					
+					//caso de si hay "|"
+					exit(0);
+				}
+				if (strcmp(argvv[conArgvv][0],"limit")==0){
+					
+					procesarLimit(argvv[conArgvv]);
 					
 					//caso de si hay "|"
 					exit(0);
