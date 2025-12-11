@@ -244,16 +244,21 @@ void procesarLimit (char ** parametros){
 void procesarSet (char ** parametros){
 	char * ret;
 	extern char ** environ;
+	int len;
 	if (parametros[1] == NULL){
-		  for (char **env = environ; *env != NULL; env++) {
-            printf("%s\n", *env);
+		  for (char **varEnt = environ; *varEnt != NULL; varEnt++) {
+            printf("%s\n", *varEnt);
         }
         return;
 	}
 	if (parametros[2] == NULL){
 		//caso no hay valor 
+		len=strlen(parametros[1] + 1);
+		ret=malloc(len);
+		strcpy(ret,parametros[1]);
+
 		if(getenv(parametros[1])!=NULL){
-			printf("%s=%s\n",parametros[1],getenv(parametros[1]));
+			printf("%s=%s\n",parametros[1],getenv(ret));
 		}
 		else {
 			printf("%s=\n", parametros[1]);
@@ -264,7 +269,7 @@ void procesarSet (char ** parametros){
 	else {
 		//valor es una lista de palabras separadas por blancos
 		// se consigue los parametros valor y su tamaño de las palabras
-	int len = strlen(parametros[1]) + 1;
+	len = strlen(parametros[1]) + 1;
 	for (int i = 2; parametros[i]!=NULL; i++){
 		len = len + strlen(parametros[i]) + 1;
 	}
@@ -276,6 +281,7 @@ void procesarSet (char ** parametros){
     }
 	strcpy(ret, parametros[1]);
     strcat(ret, "=");
+
 	for (int i = 2; parametros[i] != NULL; i++) {
         strcat(ret, parametros[i]);
         if (parametros[i+1] != NULL){ 
