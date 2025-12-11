@@ -150,23 +150,23 @@ void procesarUmask (char ** parametros){
 	}
 
 }
-void procesaLimit (char ** parametros){
+void procesarLimit (char ** parametros){
 	struct rlimit lim;
 	
 	if (parametros[1]==NULL){
 		// presentar por salida estandar todos los limites
 		getrlimit(RLIMIT_CPU,&lim);
-		fprintf("%s\t%d\n","cpu",lim.rlim_cur);
+		printf("%s\t%d\n","cpu",lim.rlim_cur);
 		getrlimit(RLIMIT_FSIZE,&lim);
-		fprintf("%s\t%d\n","fsize",lim.rlim_cur);
+		printf("%s\t%d\n","fsize",lim.rlim_cur);
 		getrlimit(RLIMIT_DATA,&lim);
-		fprintf("%s\t%d\n","data",lim.rlim_cur);
+		printf("%s\t%d\n","data",lim.rlim_cur);
 		getrlimit(RLIMIT_STACK,&lim);
-		fprintf("%s\t%d\n","stack",lim.rlim_cur);
+		printf("%s\t%d\n","stack",lim.rlim_cur);
 		getrlimit(RLIMIT_CORE,&lim);
-		fprintf("%s\t%d\n","core",lim.rlim_cur);
+		printf("%s\t%d\n","core",lim.rlim_cur);
 		getrlimit(RLIMIT_NOFILE,&lim);
-		fprintf("%s\t%d\n","nofile",lim.rlim_cur);
+		printf("%s\t%d\n","nofile",lim.rlim_cur);
 	
 	}
 	else if (parametros[2]==NULL){ // caso maximo no aparece
@@ -174,22 +174,22 @@ void procesaLimit (char ** parametros){
 		char * cad= parametros[1];
 		if (strcmp("cpu",cad)==0){
 			getrlimit(RLIMIT_CPU,&lim);
-			fprintf("%s\t%d\n","cpu",lim.rlim_cur);
+			printf("%s\t%d\n","cpu",lim.rlim_cur);
 		}else if (strcmp("fsize",cad)==0){
 			getrlimit(RLIMIT_FSIZE,&lim);
-			fprintf("%s\t%d\n","fsize",lim.rlim_cur);
+			printf("%s\t%d\n","fsize",lim.rlim_cur);
 		}else if (strcmp("data",cad)==0){
 			getrlimit(RLIMIT_DATA,&lim);
-			fprintf("%s\t%d\n","data",lim.rlim_cur);
+			printf("%s\t%d\n","data",lim.rlim_cur);
 		}else if (strcmp("stack",cad)==0){
 			getrlimit(RLIMIT_STACK,&lim);
-			fprintf("%s\t%d\n","stack",lim.rlim_cur);
+			printf("%s\t%d\n","stack",lim.rlim_cur);
 		}else if (strcmp("core",cad)==0){
 			getrlimit(RLIMIT_CORE,&lim);
-			fprintf("%s\t%d\n","core",lim.rlim_cur);
+			printf("%s\t%d\n","core",lim.rlim_cur);
 		}else if (strcmp("nofile",cad)==0){
 			getrlimit(RLIMIT_NOFILE,&lim);
-			fprintf("%s\t%d\n","nofile",lim.rlim_cur);
+			printf("%s\t%d\n","nofile",lim.rlim_cur);
 		}
 		else{
 			perror ( "limit err");
@@ -240,6 +240,50 @@ void procesaLimit (char ** parametros){
 		if (strcmp("nofile",cad)==0)
 			setrlimit(RLIMIT_NOFILE,&lim);
 	}	
+}
+void procesarSet (char ** parametros){
+	char * ret;
+	extern char ** environ;
+	if (parametros[1] == NULL){
+		  for (char **env = environ; *env != NULL; env++) {
+            printf("%s\n", *env);
+        }
+        return;
+	}
+	if (parametros[2] == NULL){
+		//caso no hay valor 
+		if(getenv(parametros[1])!=NULL){
+			printf("%s=%s\n",parametros[1],getenv(parametros[1]));
+		}
+		else {
+			printf("%s=\n", parametros[1]);
+		}
+		return;
+	}
+
+	else {
+		//valor es una lista de palabras separadas por blancos
+		// se consigue los parametros valor y su tamaño de las palabras
+	int len = strlen(parametros[1]) + 1;
+	for (int i = 2; parametros[i]!=NULL; i++){
+		len = len + strlen(parametros[i]) + 1;
+	}
+	ret = malloc(len);
+
+    if (ret == NULL) {
+        perror("err malloc");
+        return;
+    }
+	strcpy(ret, parametros[1]);
+    strcat(ret, "=");
+	for (int i = 2; parametros[i] != NULL; i++) {
+        strcat(ret, parametros[i]);
+        if (parametros[i+1] != NULL){ 
+			strcat(ret, " "); 
+		}
+    }
+	putenv(ret);
+	}
 }
 
 int main(void){
@@ -317,6 +361,14 @@ int main(void){
 			//redireccion 
 			gestRedir(filev);
 			procesarLimit(argvv[0]);	
+			//restaurar redirecciones	
+			restRedir(saved);
+
+		}
+		else if ((argvc==1) && (strcmp(argvv[0][0],"set"))==0){
+			//redireccion 
+			gestRedir(filev);
+			procesarSet(argvv[0]);	
 			//restaurar redirecciones	
 			restRedir(saved);
 
@@ -418,6 +470,13 @@ int main(void){
 				if (strcmp(argvv[conArgvv][0],"limit")==0){
 					
 					procesarLimit(argvv[conArgvv]);
+					
+					//caso de si hay "|"
+					exit(0);
+				}
+				if (strcmp(argvv[conArgvv][0],"set")==0){
+					
+					procesarSet(argvv[conArgvv]);
 					
 					//caso de si hay "|"
 					exit(0);

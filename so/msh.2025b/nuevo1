@@ -1,0 +1,6 @@
+cpu	3
+fsize	-1
+data	-1
+stack	8388608
+core	0
+nofile	1024
