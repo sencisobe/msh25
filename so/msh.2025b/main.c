@@ -197,6 +197,7 @@ void procesarLimit (char ** parametros){
 			return;
 		}
 	}
+	//demasiados parametros
 	else if (parametros[3]!=NULL){
 		perror ("limit err");
 		status=1;
