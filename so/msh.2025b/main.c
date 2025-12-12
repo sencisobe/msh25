@@ -197,6 +197,11 @@ void procesarLimit (char ** parametros){
 			return;
 		}
 	}
+	else if (parametros[4]!=NULL){
+		perror ("limit err");
+		status=1;
+		return;
+	}
 	else { // caso normal de establecimiento de limites maximos 
 
 		// un maximo de -1 es valor infinito? MAX_INT?
@@ -263,6 +268,7 @@ void procesarSet (char ** parametros){
 		else {
 			printf("%s=\n", parametros[1]);
 		}
+		free(ret);
 		return;
 	}
 
